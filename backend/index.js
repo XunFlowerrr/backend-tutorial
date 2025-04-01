@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import { testConnection } from "./test.js";
 
 dotenv.config();
 const app = express();
@@ -15,4 +16,5 @@ app.get("/api", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+  testConnection();
 });
