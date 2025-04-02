@@ -1,6 +1,7 @@
 // authController.js
 import bcrypt from "bcrypt";
 import { query } from "../config/database.js";
+import jwt from "jsonwebtoken";
 
 export async function registerUser(req, res) {
   try {
@@ -52,9 +53,62 @@ export async function registerUser(req, res) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
-export const loginUser = async (req, res) => {
-  const { username, password } = req.body; // รับข้อมูลจาก Body
-  res
-    .status(200)
-    .send({ message: "User logged in successfully", username, password });
-};
+export async function loginUser(req, res) {
+  try {
+    const { email, password } = req.body; // รับข้อมูลจาก Body
+
+    // เช็คว่ามีข้อมูลครบถ้วนหรือไม่
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Please provide email and password.",
+      });
+    }
+
+    // หา User ใน Database
+    const userRes = await query("SELECT * FROM users WHERE email = $1", [
+      email,
+    ]);
+    if (userRes.rowCount === 0) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const user = userRes.rows[0];
+
+    // ตรวจสอบ Password กับ Hashed Password ที่เก็บใน Database
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // สร้าง JWT Token โดยใช้ fucntion generateToken ที่เราสร้างขึ้น
+    const token = generateToken(user);
+
+    console.info(`User ${user.user_id} logged in successfully`);
+
+    // ส่ง Response กลับไปว่า User Login สำเร็จ
+    res.status(200).json({
+      success: true,
+      token,
+      userId: user.user_id,
+      name: user.username || user.email.split("@")[0],
+      email: user.email,
+    });
+  } catch (error) {
+    // ถ้ามี Error ให้ส่ง Response กลับไปว่า Internal server error
+    console.error("Login error: " + error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+function generateToken(user) {
+  // สร้าง JWT Token โดยใช้ jsonwebtoken jwt.sign คือ ฟังก์ชันที่ใช้ในการสร้าง Token โดยที่เราจะส่งข้อมูลที่เราต้องการเก็บใน Token ไป
+  return jwt.sign(
+    {
+      userId: user.user_id,
+      email: user.email,
+      role: user.role,
+    },
+    process.env.JWT_SECRET, // Secret Key ที่ใช้ในการเข้ารหัส Token
+    { expiresIn: "15d" }
+  );
+}
