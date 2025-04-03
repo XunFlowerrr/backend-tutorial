@@ -28,7 +28,21 @@ export async function createProject(req, res) {
   }
 }
 
-export async function getAllProjects(req, res) {}
+export async function getAllProjects(req, res) {
+  try {
+    // ดึงข้อมูลโปรเจคทั้งหมดที่ผู้ใช้เป็นเจ้าของหรือเป็นสมาชิก
+    const result = await query(
+      `SELECT p.* FROM project p
+       LEFT JOIN project_member pm ON p.project_id = pm.project_id
+       WHERE p.owner_id = $1 OR pm.user_id = $1`,
+      [req.user.userId]
+    );
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("getAllProjects error: " + error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
 
 export async function getProjectFromID(req, res) {}
 
