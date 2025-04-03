@@ -71,6 +71,42 @@ export async function getProjectFromID(req, res) {
   }
 }
 
-export async function updateProject(req, res) {}
+export async function updateProject(req, res) {
+  try {
+    const { id } = req.params; // ดึง project_id จาก request parameters
+    const { projectName, projectDescription, category } = req.body; // ดึงข้อมูลที่ส่งมาใน request body
+
+    // ตรวจสอบว่าข้อมูลที่จำเป็นถูกส่งมาหรือไม่
+    if (!projectName || !category) {
+      return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    // ทำการตรวจสอบว่าคนที่ส่งคำขออัปเดตโปรเจคนี้เป็นเจ้าของโปรเจคหรือไม่
+    const ownerCheck = await query(
+      "SELECT owner_id FROM project WHERE project_id = $1",
+      [id]
+    );
+    if (
+      !ownerCheck.rows[0] ||
+      ownerCheck.rows[0].owner_id !== req.user.userId
+    ) {
+      // ถ้าคนที่ส่งคำขอไม่ใช่เจ้าของโปรเจค หรือไม่พบโปรเจคในฐานข้อมูล จะตอบกลับด้วย status 403 และไม่ให้ทำการอัปเดต
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    // ถ้าผ่านการตรวจสอบแล้ว ทำการอัปเดตโปรเจค
+    await query(
+      `UPDATE project SET project_name=$1, project_description=$2, category=$3
+       WHERE project_id=$4`,
+      [projectName, projectDescription, category, id]
+    );
+    // ถ้าอัปเดตสำเร็จ จะตอบกลับด้วย status 200 และข้อความว่า "Project updated"
+    res.status(200).json({ message: "Project updated" });
+  } catch (error) {
+    // ถ้ามีข้อผิดพลาดเกิดขึ้น จะตอบกลับด้วย status 500 และข้อความว่า "Internal server error"
+    console.error("updateProject error: " + error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
 
 export async function deleteProject(req, res) {}
