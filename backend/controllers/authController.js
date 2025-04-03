@@ -100,6 +100,31 @@ export async function loginUser(req, res) {
   }
 }
 
+export async function getMe(req, res) {
+  try {
+    const { userId } = req.user;
+    const userRes = await query(
+      "SELECT user_id, username, email, role FROM users WHERE user_id = $1",
+      [userId]
+    );
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userRes.rows[0];
+
+    res.status(200).json({
+      userId: user.user_id,
+      name: user.username,
+      email: user.email,
+      role: user.role,
+    });
+  } catch (error) {
+    log.error("Get current user error: " + error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 function generateToken(user) {
   // สร้าง JWT Token โดยใช้ jsonwebtoken jwt.sign คือ ฟังก์ชันที่ใช้ในการสร้าง Token โดยที่เราจะส่งข้อมูลที่เราต้องการเก็บใน Token ไป
   return jwt.sign(
