@@ -109,4 +109,31 @@ export async function updateProject(req, res) {
   }
 }
 
-export async function deleteProject(req, res) {}
+export async function deleteProject(req, res) {
+  try {
+    const { id } = req.params; // ดึง project_id จาก request parameters
+
+    // ทำการตรวจสอบว่าคนที่ส่งคำขอจะลบโปรเจคนี้เป็นเจ้าของโปรเจคหรือไม่
+    const ownerCheck = await query(
+      "SELECT owner_id FROM project WHERE project_id = $1",
+      [id]
+    );
+    if (
+      !ownerCheck.rows[0] ||
+      ownerCheck.rows[0].owner_id !== req.user.userId
+    ) {
+      // ถ้าคนที่ส่งคำขอไม่ใช่เจ้าของโปรเจค หรือไม่พบโปรเจคในฐานข้อมูล จะตอบกลับด้วย status 403 และไม่ให้ทำการลบ
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    // ถ้าผ่านการตรวจสอบแล้ว ทำการลบโปรเจค
+    await query("DELETE FROM project WHERE project_id = $1", [id]);
+
+    // ถ้าลบสำเร็จ จะตอบกลับด้วย status 200 และข้อความว่า "Project deleted"
+    res.status(200).json({ message: "Project deleted" });
+  } catch (error) {
+    // ถ้ามีข้อผิดพลาดเกิดขึ้น จะตอบกลับด้วย status 500 และข้อความว่า "Internal server error"
+    console.error("deleteProject error: " + error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
